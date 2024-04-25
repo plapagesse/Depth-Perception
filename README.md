@@ -1,2 +1,3 @@
 # Depth-Perception
 Depth Perception Semantic segmentation 
+Encoder Model: https://pytorch.org/vision/main/models/generated/torchvision.models.densenet169.html#torchvision.models.DenseNet169_Weights
