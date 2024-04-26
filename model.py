@@ -1,20 +1,16 @@
 import numpy as np
 import torch
-import torchvision
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import seaborn
-from torchsummary import summary
 from torchvision.models import densenet121
-
-import matplotlib.pyplot as plt
+import torchvision
 
 # Outputs (num_channels,Height,Width) tensor
-#densenet121 = densenet121(weights='DEFAULT')
-#densenet121 = densenet121.cuda()
-#densenet121.classifier = nn.Linear(densenet121.classifier.in_features, densenet121.classifier.in_features)
+# densenet121 = densenet121(weights='DEFAULT')
+# densenet121 = densenet121.cuda()
+# densenet121.classifier = nn.Linear(densenet121.classifier.in_features, densenet121.classifier.in_features)
 # scene1_depth = np.load("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010_depth.npy")
-#summary(densenet121.features, (3,768,1024))
+# summary(densenet121.features, (3,768,1024))
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -75,10 +71,10 @@ class DepthPerception(nn.Module):
         return self.decoder(self.encoder(x))
 
 
-#
-# model = DepthPerception()
-# model = model.cuda()
-# scene1 = torchvision.io.read_image("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010.png")
-# scene1 = scene1.cuda()
-# d_map = model(scene1.float().resize(1,3,768,1024))
-# print(d_map.shape)
+
+model = DepthPerception()
+model = model.cuda()
+scene1 = torchvision.io.read_image("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010.png")
+scene1 = scene1.cuda()
+d_map = model(scene1.float().resize(1,3,768,1024))
+print(d_map.shape)
