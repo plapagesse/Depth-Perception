@@ -1,0 +1,6 @@
+*
+!model.ipynb
+!*.md
+!requirements.txt
+!*.py
+!.gitignore
