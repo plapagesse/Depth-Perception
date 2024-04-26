@@ -5,3 +5,5 @@ https://coe-dsai.nasscom.in/understanding-depth-perception-in-computer-vision/ -
 
 https://diode-dataset.org/ # Dataset downlaod
 
+Install dataset: wget http://diode-dataset.s3.amazonaws.com/val.tar.gz
+
