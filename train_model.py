@@ -42,52 +42,6 @@ class InternalLoader(Dataset):
     def __len__(self):
         return len(self.dataset)
 
-class ToTensor(object):
-    def __init__(self,test=False):
-        self.test = test
-
-    def __call__(self, sample):
-        image, depth = sample['image'], sample['depth']
-        image = self.to_tensor(image)
-        depth = depth.resize((384, 512))
-        
-        # Can switch
-        depth = torch.clamp(depth, 10, 1000)
-
-        return {'image': image, 'depth': depth}
-
-    def to_tensor(self, pic):
-        if not(is_pil_image(pic) or is_numpy_image(pic)):
-            raise TypeError(
-                'pic should be PIL Image or ndarray. Got {}'.format(type(pic)))
-
-        if isinstance(pic, np.ndarray):
-            img = torch.from_numpy(pic.transpose((2, 0, 1)))
-            return img.float().div(255)
-
-        # handle PIL Image
-        if pic.mode == 'I':
-            img = torch.from_numpy(np.array(pic, np.int32, copy=False))
-        elif pic.mode == 'I;16':
-            img = torch.from_numpy(np.array(pic, np.int16, copy=False))
-        else:
-            img = torch.ByteTensor(
-                torch.ByteStorage.from_buffer(pic.tobytes()))
-        # PIL image mode: 1, L, P, I, F, RGB, YCbCr, RGBA, CMYK
-        if pic.mode == 'YCbCr':
-            nchannel = 3
-        elif pic.mode == 'I;16':
-            nchannel = 1
-        else:
-            nchannel = len(pic.mode)
-        img = img.view(pic.size[1], pic.size[0], nchannel)
-
-        img = img.transpose(0, 1).transpose(0, 2).contiguous()
-        if isinstance(img, torch.ByteTensor):
-            return img.float().div(255)
-        else:
-            return img
-
 def main():
     # Initialize model arch
     model = DepthPerception().cuda()
