@@ -2,6 +2,7 @@ from model import DepthPerception
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
+import torchvision
 from PIL import Image
 from io import BytesIO
 import numpy as np
@@ -27,14 +28,14 @@ class InternalLoader(Dataset):
 
     def __getitem__(self, idx):
         sample = self.dataset[idx]
-        numpy_depth = sample[1]
-        default_image = sample[0]
-        image = Image.open(default_image)
+        numpy_depth = sample['scene_depth']
+        default_image = sample['scene']
+        # image = Image.open(default_image)
 
-        array = np.load(numpy_depth)
-        depth = Image.fromarray(array)
+        # array = np.load(numpy_depth)
+        # depth = Image.fromarray(array)
 
-        sample = {'image': image, 'depth': depth}
+        sample = {'image': default_image, 'depth': numpy_depth}
         if self.transform: sample = self.transform(sample) 
         
         return sample
@@ -49,7 +50,7 @@ def main():
     # Initialize optimizer
     batch = 5 
     optimizer = torch.optim.Adam(model.parameters(), 0.001)
-    
+
     scan_ids_indoor = {"00019": ["00183"],
                     "00020": ["00184", "00185", "00186", "00187"],
                     "00021": ["00188", "00189", "00190", "00191", "00192"]}
@@ -60,21 +61,21 @@ def main():
                 "outdoor" : scan_ids_outdoor}
     dataset = []
     for start in ["indoors", "outdoor"]:
-    path = "data/" + start + '/'
-    for scene in scenes_scans[start].keys():
-        scene_path = path + "scene_" + scene + '/'
-        for scan in scenes_scans[start][scene]:
-            scan_path = scene_path + "scan_" + scan + '/'
-            files = os.listdir(scan_path)
-            data = [files[i:i+3] for i in range(0, len(files), 3)]
-            for perspective in data:
-                scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
-                scene_depth = torch.from_numpy(np.load(scan_path + perspective[1]))
-                scene_depth_mask = np.load(scan_path + perspective[2])
-                scene_depth_mask = torch.from_numpy(np.resize(scene_depth_mask,
-                                                (scene_depth_mask.shape[0], scene_depth_mask.shape[1], 1)))
-                scene_depth = (scene_depth*scene_depth_mask).movedim(-1,0)
-                full_data.append({"scene": scenen, "scene_depth": scene_depth})
+        path = "data/" + start + '/'
+        for scene in scenes_scans[start].keys():
+            scene_path = path + "scene_" + scene + '/'
+            for scan in scenes_scans[start][scene]:
+                scan_path = scene_path + "scan_" + scan + '/'
+                files = os.listdir(scan_path)
+                data = [files[i:i+3] for i in range(0, len(files), 3)]
+                for perspective in data:
+                    scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
+                    scene_depth = torch.from_numpy(np.load(scan_path + perspective[1]))
+                    scene_depth_mask = np.load(scan_path + perspective[2])
+                    scene_depth_mask = torch.from_numpy(np.resize(scene_depth_mask,
+                                                    (scene_depth_mask.shape[0], scene_depth_mask.shape[1], 1)))
+                    scene_depth = (scene_depth*scene_depth_mask).movedim(-1,0)
+                    dataset.append({"scene": scenen, "scene_depth": scene_depth})
 
 
     # load data
