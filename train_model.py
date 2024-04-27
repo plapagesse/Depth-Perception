@@ -7,7 +7,8 @@ from PIL import Image
 from io import BytesIO
 import numpy as np
 import os
-
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 # Data stuff
 
 def is_pil_image(img):
@@ -16,10 +17,11 @@ def is_pil_image(img):
 def is_numpy_image(img):
     return isinstance(img, np.ndarray) and (img.ndim in {2, 3})
 
-def get_transform():
-    return transforms.Compose([
-        ToTensor()
-    ])
+def visualize_pred(scene, depth, epoch):
+    fig, axs = plt.subplots(ncols=2)
+    axs[0].imshow(scene)
+    axs[1].imshow(depth, cmap='seismic')
+    plt.savefig("results/" + epoch + ".png")
 
 class InternalLoader(Dataset):
     def __init__(self, data, to_tensor=None):
@@ -66,7 +68,7 @@ def main():
             scene_path = path + "scene_" + scene + '/'
             for scan in scenes_scans[start][scene]:
                 scan_path = scene_path + "scan_" + scan + '/'
-                files = os.listdir(scan_path)
+                files = sorted(os.listdir(scan_path))
                 data = [files[i:i+3] for i in range(0, len(files), 3)]
                 for perspective in data:
                     scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
@@ -75,18 +77,46 @@ def main():
                     scene_depth_mask = torch.from_numpy(np.resize(scene_depth_mask,
                                                     (scene_depth_mask.shape[0], scene_depth_mask.shape[1], 1)))
                     scene_depth = (scene_depth*scene_depth_mask).movedim(-1,0)
+                    scene_depth = torch.clamp(scene_depth, 0.4, 10)
                     dataset.append({"scene": scenen, "scene_depth": scene_depth})
 
 
     # load data
-    # tr_loader = 
-    # tst_loader =
+    tr_loader = DataLoader(InternalLoader(dataset), batch, shuffle = True)
+    tst_loader = DataLoader(InternalLoader(dataset), batch, shuffle = True)
 
-    # log ? 
+    l1_criterion = torch.nn.L1Loss()
 
-    # loss
+    # set num epochs
 
-    # train
+    for epoch in tqdm(range(10)):
+
+        model.train()
+
+        for i, batched in enumerate(tr_loader):
+            optimizer.zero_grad()
+            #print(batched)
+
+            default = batched['image']
+            depths = batched['depth']
+
+            # normalize depth ?? 
+
+            prediction = model(default)
+
+
+            l_depth = l1_criterion(prediction, depths)
+
+
+            l_depth.backward()
+            optimizer.step()
+
+            print(l_depth)
+            visualize_pred(default, prediction, epoch)
+
+
+
+
 
     pass
 
