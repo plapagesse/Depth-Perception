@@ -8,3 +8,5 @@ paper: https://arxiv.org/pdf/1812.11941.pdf
 Report Link: https://www.overleaf.com/7257517622rjmyjtxnrrbs#a53bde
 
 Other implementation: https://github.com/ialhashim/DenseDepth/tree/master
+
+Paper with loss functions: https://arxiv.org/html/2404.07686v1#:~:text=Common%20loss%20functions%20include%20Mean,and%20true%20depth%20values%2C%20respectively.
