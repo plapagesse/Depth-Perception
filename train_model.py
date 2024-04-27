@@ -49,21 +49,32 @@ def main():
     # Initialize optimizer
     batch = 5 
     optimizer = torch.optim.Adam(model.parameters(), 0.001)
-
+    
+    scan_ids_indoor = {"00019": ["00183"],
+                    "00020": ["00184", "00185", "00186", "00187"],
+                    "00021": ["00188", "00189", "00190", "00191", "00192"]}
+    scan_ids_outdoor = {"00022": ["00193", "00194", "00195", "00196", "00197"],
+                    "00023": ["00198", "00199", "00200"],
+                    "00024": ["00201", "00202"]}
+    scenes_scans = {"indoors" : scan_ids_indoor,
+                "outdoor" : scan_ids_outdoor}
     dataset = []
-
-    for dir in os.listdir('data'):
-        dir_path = os.path.join('data', dir)
-
-        for scene in os.listdir(dir_path):
-            scene_path = os.path.join(dir_path, scene)
-
-            for scan in os.listdir(scene_path):
-                scan_path = os.path.join(scene_path, scan)
-
-
-                for file in os.listdir(scan_path):
-                    print(file)
+    for start in ["indoors", "outdoor"]:
+    path = "data/" + start + '/'
+    for scene in scenes_scans[start].keys():
+        scene_path = path + "scene_" + scene + '/'
+        for scan in scenes_scans[start][scene]:
+            scan_path = scene_path + "scan_" + scan + '/'
+            files = os.listdir(scan_path)
+            data = [files[i:i+3] for i in range(0, len(files), 3)]
+            for perspective in data:
+                scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
+                scene_depth = torch.from_numpy(np.load(scan_path + perspective[1]))
+                scene_depth_mask = np.load(scan_path + perspective[2])
+                scene_depth_mask = torch.from_numpy(np.resize(scene_depth_mask,
+                                                (scene_depth_mask.shape[0], scene_depth_mask.shape[1], 1)))
+                scene_depth = (scene_depth*scene_depth_mask).movedim(-1,0)
+                full_data.append({"scene": scenen, "scene_depth": scene_depth})
 
 
     # load data
