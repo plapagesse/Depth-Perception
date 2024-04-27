@@ -1,6 +1,8 @@
 import numpy as np
 import torchvision
 import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch.nn.functional as F
 import os
 import torch
 from tqdm import tqdm
@@ -16,11 +18,16 @@ scene1_depth_mask = np.resize(scene1_depth_mask, (scene1_depth_mask.shape[0], sc
 scene1_depth = scene1_depth * scene1_depth_mask
 scene1 = scene1.movedim(0, -1)
 
-scene1 = torch.cat((scene1,))
+dx = torch.Tensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
+dx_nn = nn.Conv2d(1,1,kernel_size=3,padding=1,bias=False)
+dx_nn.weight = nn.Parameter(dx.float().unsqueeze(0).unsqueeze(0))
+dx_nn.eval()
+scene1_depth_t = torch.from_numpy(scene1_depth).movedim(-1,0)
+scene1_dx = dx_nn(scene1_depth_t).detach()
 
 # scene1_depth = normalize(scene1_depth)
 fig, axs = plt.subplots(ncols=2)
-axs[0].imshow(scene1.float().int())
+axs[0].imshow(scene1_dx.movedim(0,-1),cmap='gray')
 axs[1].imshow(scene1_depth, cmap='seismic')
 plt.savefig("test.png")
 

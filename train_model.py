@@ -3,6 +3,7 @@ import torch
 from torchsummary import summary
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
+import torch.nn as nn
 from torchvision import transforms, utils
 import torchvision
 from PIL import Image
@@ -12,6 +13,8 @@ import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import pickle
+import torchmetrics
+
 
 
 # Data stuff
@@ -33,7 +36,7 @@ def visualize_pred(scene, pred_depth, real_depth, epoch):
     pred_depth = pred_depth.movedim(0, -1)
     real_depth = real_depth.movedim(0, -1)
     axs[0].imshow(scene.int())
-    pred_depth = torch.clamp(pred_depth, min=0.4,max=torch.max(real_depth))
+    pred_depth = torch.clamp(pred_depth, min=0.4, max=10)
     hm1 = axs[1].imshow(pred_depth, cmap='seismic')
     fig.colorbar(hm1)
     hm2 = axs[2].imshow(real_depth, cmap='seismic')
@@ -90,7 +93,8 @@ def main():
             print("reading from pickle")
             dataset = pickle.load(file)
     else:
-        for start in ["indoors", "outdoor"]:
+        # for start in ["indoors", "outdoor"]:
+        for start in ["indoors"]:
             path = "data/" + start + '/'
             for scene in scenes_scans[start].keys():
                 scene_path = path + "scene_" + scene + '/'
@@ -127,9 +131,26 @@ def main():
     # set num epochs
     print("starting training")
     model.train()
-    for epoch in tqdm(range(384)):
+    loader = list(tr_loader.batch_sampler)
+    # Set up sobel/gradient convolutions
+    dx = torch.Tensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
+    dx_nn = nn.Conv2d(1, 1, kernel_size=3, padding=1, bias=False)
+    dx_nn.weight = nn.Parameter(dx.float().unsqueeze(0).unsqueeze(0))
+    dx_nn.eval()
+    dx_nn = dx_nn.cuda()
+
+    dy = torch.Tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+    dy_nn = nn.Conv2d(1, 1, kernel_size=3, padding=1, bias=False)
+    dy_nn.weight = nn.Parameter(dy.float().unsqueeze(0).unsqueeze(0))
+    dy_nn.eval()
+    dy_nn = dy_nn.cuda()
+
+    ssim = torchmetrics.image.StructuralSimilarityIndexMeasure().cuda()
+
+
+    for epoch in tqdm(range((len(loader) - 1) * 2)):  # Go through dataset twice
         optimizer.zero_grad()
-        batch = list(tr_loader.batch_sampler)[epoch]
+        batch = loader[epoch % len(loader)]
         default = []
         depths = []
         masks = []
@@ -137,22 +158,36 @@ def main():
             default.append(tr_loader.dataset[i]['image'].cuda())
             depths.append(tr_loader.dataset[i]['depth'].cuda())
             masks.append(tr_loader.dataset[i]['depthmask'].cuda())
-
         default = torch.stack(default)
         depths = torch.stack(depths)
         masks = torch.stack(masks)
         prediction = model(default)
-
         prediction = F.upsample(prediction, scale_factor=2, mode='bilinear')
         for i in range(len(batch)):
             prediction[i][masks[i] == 0] = 0.4
         l_depth = l1_criterion(prediction, depths)
 
-        l_depth.backward()
+        G_X = dx_nn(depths.float()).detach()
+        G_Y = dy_nn(depths.float()).detach()
+        G_X_p = dx_nn(prediction.float()).detach()
+        G_Y_p = dy_nn(prediction.float()).detach()
+        l_grad_x = l1_criterion(G_X_p,G_X)
+        l_grad_y = l1_criterion(G_Y_p, G_Y)
+        l_grad = l_grad_x + l_grad_y
+
+        l_ssim =  (1 - ssim(prediction,depths))/2
+
+        loss = l_ssim + l_grad + (0.1 * l_depth)
+
+
+        loss.backward()
         optimizer.step()
 
-        print(torch.sum(l_depth))
-        visualize_pred(default[0], prediction[0], depths[0], epoch)
+        if (epoch % 10) == 0:
+            print("SSIM_loss: ",l_ssim)
+            print("Grad_loss ", l_grad)
+            print("Depth loss/10 ", l_depth*0.1)
+            visualize_pred(default[0], prediction[0], depths[0], epoch)
         # for batched in list(tr_loader.batch_sampler)[epoch]:
         #     optimizer.zero_grad()
         #     #print(batched)
