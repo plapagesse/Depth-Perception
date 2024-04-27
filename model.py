@@ -20,6 +20,7 @@ class Encoder(nn.Module):
     def forward(self,x):
         skips = []
         for layer in self.features:
+            print("x shape: ", x.shape)
             x = layer(x)
             skips.append(x)
         skips[11] = self.relu(skips[11])
@@ -72,9 +73,9 @@ class DepthPerception(nn.Module):
 
 
 
-model = DepthPerception()
-model = model.cuda()
-scene1 = torchvision.io.read_image("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010.png")
-scene1 = scene1.cuda()
-d_map = model(scene1.float().resize(1,3,768,1024))
-print(d_map.shape)
+# model = DepthPerception()
+# model = model.cuda()
+# scene1 = torchvision.io.read_image("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010.png")
+# scene1 = scene1.cuda()
+# d_map = model(scene1.float().resize(1,3,768,1024))
+# print(d_map.shape)

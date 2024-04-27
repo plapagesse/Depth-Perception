@@ -1,5 +1,6 @@
 from model import DepthPerception
 import torch
+from torchsummary import summary
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 import torchvision
@@ -9,6 +10,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import pickle
 # Data stuff
 
 def is_pil_image(img):
@@ -48,6 +50,7 @@ class InternalLoader(Dataset):
 def main():
     # Initialize model arch
     model = DepthPerception().cuda()
+    summary(model, (3,768,1024))
 
     # Initialize optimizer
     batch = 5 
@@ -62,23 +65,32 @@ def main():
     scenes_scans = {"indoors" : scan_ids_indoor,
                 "outdoor" : scan_ids_outdoor}
     dataset = []
-    for start in ["indoors", "outdoor"]:
-        path = "data/" + start + '/'
-        for scene in scenes_scans[start].keys():
-            scene_path = path + "scene_" + scene + '/'
-            for scan in scenes_scans[start][scene]:
-                scan_path = scene_path + "scan_" + scan + '/'
-                files = sorted(os.listdir(scan_path))
-                data = [files[i:i+3] for i in range(0, len(files), 3)]
-                for perspective in data:
-                    scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
-                    scene_depth = torch.from_numpy(np.load(scan_path + perspective[1]))
-                    scene_depth_mask = np.load(scan_path + perspective[2])
-                    scene_depth_mask = torch.from_numpy(np.resize(scene_depth_mask,
-                                                    (scene_depth_mask.shape[0], scene_depth_mask.shape[1], 1)))
-                    scene_depth = (scene_depth*scene_depth_mask).movedim(-1,0)
-                    scene_depth = torch.clamp(scene_depth, 0.4, 10)
-                    dataset.append({"scene": scenen, "scene_depth": scene_depth})
+
+
+    if os.path.exists('dataset.pkl'):
+        with open('dataset.pkl', 'rb') as file:
+            dataset = pickle.load(file)
+    else: 
+        for start in ["indoors", "outdoor"]:
+            path = "data/" + start + '/'
+            for scene in scenes_scans[start].keys():
+                scene_path = path + "scene_" + scene + '/'
+                for scan in scenes_scans[start][scene]:
+                    scan_path = scene_path + "scan_" + scan + '/'
+                    files = sorted(os.listdir(scan_path))
+                    data = [files[i:i+3] for i in range(0, len(files), 3)]
+                    for perspective in data:
+                        scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
+                        scene_depth = torch.from_numpy(np.load(scan_path + perspective[1]))
+                        scene_depth_mask = np.load(scan_path + perspective[2])
+                        scene_depth_mask = torch.from_numpy(np.resize(scene_depth_mask,
+                                                        (scene_depth_mask.shape[0], scene_depth_mask.shape[1], 1)))
+                        scene_depth = (scene_depth*scene_depth_mask).movedim(-1,0)
+                        scene_depth = torch.clamp(scene_depth, 0.4, 10)
+                        dataset.append({"scene": scenen, "scene_depth": scene_depth})
+
+        with open('dataset.pkl', 'wb') as file:
+                pickle.dump(dataset, file)
 
 
     # load data
@@ -97,8 +109,8 @@ def main():
             optimizer.zero_grad()
             #print(batched)
 
-            default = batched['image']
-            depths = batched['depth']
+            default = batched['image'].cuda()
+            depths = batched['depth'].cuda()
 
             # normalize depth ?? 
 
