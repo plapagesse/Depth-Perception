@@ -20,7 +20,7 @@ class Encoder(nn.Module):
     def forward(self,x):
         skips = []
         for layer in self.features:
-            print("x shape: ", x.shape)
+            #print("x shape: ", x.shape)
             x = layer(x)
             skips.append(x)
         skips[11] = self.relu(skips[11])
