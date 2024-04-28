@@ -74,8 +74,9 @@ class DepthPerception(nn.Module):
         return self.decoder(self.encoder(x))
 
 
-model = Encoder()
+model = DepthPerception()
 model = model.cuda()
+model.encoder.requires_grad_(False)
 summary(model,(3,768,1024))
 # scene1 = torchvision.io.read_image("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010.png")
 # scene1 = scene1.cuda()

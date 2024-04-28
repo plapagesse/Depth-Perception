@@ -72,6 +72,7 @@ class InternalLoader(Dataset):
 def main():
     # Initialize model arch
     model = DepthPerception().cuda()
+    #model.encoder.requires_grad_(False)
     summary(model, (3, 768, 1024))
 
     # Initialize optimizer
@@ -183,7 +184,7 @@ def main():
         lgrad_losses.append(l_grad)
         lssim_losses.append(l_ssim)
 
-        loss = l_ssim + l_grad + (0.1 * l_depth)
+        loss = (4*l_ssim) + l_grad + l_depth
 
 
         loss.backward()
@@ -194,10 +195,10 @@ def main():
             print("Grad_loss ", l_grad)
             print("Depth loss/10 ", l_depth*0.1)
             visualize_pred(default[0], prediction[0], depths[0], epoch)
-    torch.save(model.state_dict(),"model/model121_allloss")
-    torch.save(lssim_losses,"model/loss_ssim")
-    torch.save(l1_losses, "model/loss_l1")
-    torch.save(lgrad_losses, "model/loss_grad")
+    torch.save(model.state_dict(),"model/largessim2")
+    torch.save(lssim_losses,"model/ls_loss_ssim2")
+    torch.save(l1_losses, "model/ls_loss_l12")
+    torch.save(lgrad_losses, "model/ls_loss_grad2")
     model.eval()
 
 
