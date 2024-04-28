@@ -105,6 +105,7 @@ def main():
                     files = sorted(os.listdir(scan_path))
                     data = [files[i:i + 3] for i in range(0, len(files), 3)]
                     for perspective in data:
+                        print(perspective)
                         scenen = torchvision.io.read_image(scan_path + perspective[0]).float()
                         scene_depth = torch.from_numpy(np.load(scan_path + perspective[1]))
                         scene_depth_mask = np.load(scan_path + perspective[2])
@@ -120,9 +121,11 @@ def main():
                                         "scene_depth_mask": scene_depth_mask.movedim(-1, 0)})
 
         with open('dataset.pkl', 'wb') as file:
+            print(dataset)
             pickle.dump(dataset, file)
 
     # load data
+    print("loading data")
     tr_data = dataset[:int(0.7*len(dataset))]
     test_data = dataset[int(0.7*len(dataset)):]
     print("training loader")
@@ -213,9 +216,13 @@ def main():
     num_points = 0
 
     for point in test_data:
-        default = point['scene']
-        truth = point['scene_depth']
-        masks = point["scene_depth_mask"]
+        default = [point['scene'].cuda()]
+        truth = [point['scene_depth'].cuda()]
+        masks = [point["scene_depth_mask"].cuda()]
+
+        default = torch.stack(default)
+        truth = torch.stack(truth)
+        masks = torch.stack(masks)
 
         #predict
         prediction = model(default)
