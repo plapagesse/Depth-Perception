@@ -70,6 +70,7 @@ class InternalLoader(Dataset):
 
 
 def main():
+    TRAIN_MODE = False
     # Initialize model arch
     model = DepthPerception().cuda()
     #model.encoder.requires_grad_(False)
@@ -151,55 +152,89 @@ def main():
     lgrad_losses = []
     lssim_losses = []
 
-    for epoch in tqdm(range((len(loader) - 1) * 4)):  # Go through dataset twice
-        optimizer.zero_grad()
-        batch = loader[epoch % len(loader)]
-        default = []
-        depths = []
-        masks = []
-        for i in batch:
-            default.append(tr_loader.dataset[i]['image'].cuda())
-            depths.append(tr_loader.dataset[i]['depth'].cuda())
-            masks.append(tr_loader.dataset[i]['depthmask'].cuda())
-        default = torch.stack(default)
-        depths = torch.stack(depths)
-        masks = torch.stack(masks)
+    if TRAIN_MODE:
+        for epoch in tqdm(range((len(loader) - 1) * 4)):  # Go through dataset twice
+            optimizer.zero_grad()
+            batch = loader[epoch % len(loader)]
+            default = []
+            depths = []
+            masks = []
+            for i in batch:
+                default.append(tr_loader.dataset[i]['image'].cuda())
+                depths.append(tr_loader.dataset[i]['depth'].cuda())
+                masks.append(tr_loader.dataset[i]['depthmask'].cuda())
+            default = torch.stack(default)
+            depths = torch.stack(depths)
+            masks = torch.stack(masks)
+            prediction = model(default)
+            prediction = F.upsample(prediction, scale_factor=2, mode='bilinear')
+            for i in range(len(batch)):
+                prediction[i][masks[i] == 0] = 0.4
+            l_depth = l1_criterion(prediction, depths)
+
+            G_X = dx_nn(depths.float()).detach()
+            G_Y = dy_nn(depths.float()).detach()
+            G_X_p = dx_nn(prediction.float()).detach()
+            G_Y_p = dy_nn(prediction.float()).detach()
+            l_grad_x = l1_criterion(G_X_p,G_X)
+            l_grad_y = l1_criterion(G_Y_p, G_Y)
+            l_grad = l_grad_x + l_grad_y
+
+            l_ssim =  (1 - ssim(prediction,depths))/2
+
+            l1_losses.append(l_depth)
+            lgrad_losses.append(l_grad)
+            lssim_losses.append(l_ssim)
+
+            loss = l_ssim + l_grad + (0.1 * l_depth)
+
+
+            loss.backward()
+            optimizer.step()
+
+            if (epoch % 10) == 0:
+                print("SSIM_loss: ",l_ssim)
+                print("Grad_loss ", l_grad)
+                print("Depth loss/10 ", l_depth*0.1)
+                visualize_pred(default[0], prediction[0], depths[0], epoch)
+        torch.save(model.state_dict(),"model/model121_allloss")
+        torch.save(lssim_losses,"model/loss_ssim")
+        torch.save(l1_losses, "model/loss_l1")
+        torch.save(lgrad_losses, "model/loss_grad")
+    else:
+        model.load_state_dict(torch.load("model/model121_allloss"))
+        print("loaded model")
+
+    #TEST
+    model.eval()    
+    
+    total_relative_error = 0
+    total_squared_error = 0
+    num_points = 0
+
+    for point in test_data:
+        default = point['scene']
+        truth = point['scene_depth']
+
+        #predict
         prediction = model(default)
         prediction = F.upsample(prediction, scale_factor=2, mode='bilinear')
-        for i in range(len(batch)):
-            prediction[i][masks[i] == 0] = 0.4
-        l_depth = l1_criterion(prediction, depths)
+        prediction[masks[i] == 0] = 0.4
 
-        G_X = dx_nn(depths.float()).detach()
-        G_Y = dy_nn(depths.float()).detach()
-        G_X_p = dx_nn(prediction.float()).detach()
-        G_Y_p = dy_nn(prediction.float()).detach()
-        l_grad_x = l1_criterion(G_X_p,G_X)
-        l_grad_y = l1_criterion(G_Y_p, G_Y)
-        l_grad = l_grad_x + l_grad_y
+        # Calculate the averge relative error
+        relative_error = torch.abs(prediction - truth) / torch.clamp(truth, min=1e-6)  # Avoid division by zero
+        total_relative_error += torch.sum(relative_error).item()
+        num_points += torch.numel(truth)
 
-        l_ssim =  (1 - ssim(prediction,depths))/2
-
-        l1_losses.append(l_depth)
-        lgrad_losses.append(l_grad)
-        lssim_losses.append(l_ssim)
-
-        loss = (4*l_ssim) + l_grad + l_depth
+        # Calcuklate the root mean squared error
+        squared_error = (prediction - truth) ** 2
+        total_squared_error += torch.sum(squared_error).item()
 
 
-        loss.backward()
-        optimizer.step()
-
-        if (epoch % 10) == 0:
-            print("SSIM_loss: ",l_ssim)
-            print("Grad_loss ", l_grad)
-            print("Depth loss/10 ", l_depth*0.1)
-            visualize_pred(default[0], prediction[0], depths[0], epoch)
-    torch.save(model.state_dict(),"model/largessim2")
-    torch.save(lssim_losses,"model/ls_loss_ssim2")
-    torch.save(l1_losses, "model/ls_loss_l12")
-    torch.save(lgrad_losses, "model/ls_loss_grad2")
-    model.eval()
+    average_relative_error = total_relative_error / num_points
+    root_mean_squared_error = np.sqrt(total_squared_error / num_points)
+    print(f"Average Relative Error: {average_relative_error}")
+    print(f"Root Mean Squared Error: {root_mean_squared_error}")
 
 
 

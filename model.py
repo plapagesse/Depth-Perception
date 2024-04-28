@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import densenet121
-from torchvision.models import densenet169
 import torchvision
 from torchsummary import summary
 
