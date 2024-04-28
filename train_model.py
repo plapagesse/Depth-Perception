@@ -215,11 +215,12 @@ def main():
     for point in test_data:
         default = point['scene']
         truth = point['scene_depth']
+        masks = point["scene_depth_mask"]
 
         #predict
         prediction = model(default)
         prediction = F.upsample(prediction, scale_factor=2, mode='bilinear')
-        prediction[masks[i] == 0] = 0.4
+        prediction[masks == 0] = 0.4
 
         # Calculate the averge relative error
         relative_error = torch.abs(prediction - truth) / torch.clamp(truth, min=1e-6)  # Avoid division by zero
