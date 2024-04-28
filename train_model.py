@@ -36,7 +36,7 @@ def visualize_pred(scene, pred_depth, real_depth, epoch):
     pred_depth = pred_depth.movedim(0, -1)
     real_depth = real_depth.movedim(0, -1)
     axs[0].imshow(scene.int())
-    pred_depth = torch.clamp(pred_depth, min=0.4, max=10)
+    pred_depth = torch.clamp(pred_depth, min=0.4, max=80)
     hm1 = axs[1].imshow(pred_depth, cmap='seismic')
     fig.colorbar(hm1)
     hm2 = axs[2].imshow(real_depth, cmap='seismic')
@@ -94,7 +94,7 @@ def main():
             dataset = pickle.load(file)
     else:
         # for start in ["indoors", "outdoor"]:
-        for start in ["indoors"]:
+        for start in ["outdoor"]:
             path = "data/" + start + '/'
             for scene in scenes_scans[start].keys():
                 scene_path = path + "scene_" + scene + '/'
@@ -121,10 +121,10 @@ def main():
             pickle.dump(dataset, file)
 
     # load data
+    tr_data = dataset[:int(0.7*len(dataset))]
+    test_data = dataset[int(0.7*len(dataset)):]
     print("training loader")
-    tr_loader = DataLoader(InternalLoader(dataset), batch, shuffle=True)
-    print("test loader")
-    tst_loader = DataLoader(InternalLoader(dataset), batch, shuffle=True)
+    tr_loader = DataLoader(InternalLoader(tr_data), batch, shuffle=True)
     print("l1loss")
     l1_criterion = torch.nn.L1Loss()
 
@@ -146,9 +146,11 @@ def main():
     dy_nn = dy_nn.cuda()
 
     ssim = torchmetrics.image.StructuralSimilarityIndexMeasure().cuda()
+    l1_losses = []
+    lgrad_losses = []
+    lssim_losses = []
 
-
-    for epoch in tqdm(range((len(loader) - 1) * 2)):  # Go through dataset twice
+    for epoch in tqdm(range((len(loader) - 1) * 4)):  # Go through dataset twice
         optimizer.zero_grad()
         batch = loader[epoch % len(loader)]
         default = []
@@ -177,6 +179,10 @@ def main():
 
         l_ssim =  (1 - ssim(prediction,depths))/2
 
+        l1_losses.append(l_depth)
+        lgrad_losses.append(l_grad)
+        lssim_losses.append(l_ssim)
+
         loss = l_ssim + l_grad + (0.1 * l_depth)
 
 
@@ -188,29 +194,12 @@ def main():
             print("Grad_loss ", l_grad)
             print("Depth loss/10 ", l_depth*0.1)
             visualize_pred(default[0], prediction[0], depths[0], epoch)
-        # for batched in list(tr_loader.batch_sampler)[epoch]:
-        #     optimizer.zero_grad()
-        #     #print(batched)
-        #
-        #     default = tr_loader.dataset[]['image'].cuda()
-        #     depths = tr_loader.dataset[batched]['depth'].cuda()
-        #
-        #     # normalize depth ??
-        #
-        #     prediction = model(default)
-        #
-        #     prediction = F.upsample(prediction,scale_factor=2,mode='bilinear')
-        #     l_depth = l1_criterion(prediction, depths)
-        #
-        #
-        #
-        #     l_depth.backward()
-        #     optimizer.step()
-        #
-        #     print(l_depth)
-        #     visualize_pred(default[0], prediction[0], epoch)
+    torch.save(model.state_dict(),"model/model121_allloss")
+    torch.save(lssim_losses,"model/loss_ssim")
+    torch.save(l1_losses, "model/loss_l1")
+    torch.save(lgrad_losses, "model/loss_grad")
+    model.eval()
 
-    pass
 
 
 if __name__ == '__main__':

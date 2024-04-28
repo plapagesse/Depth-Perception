@@ -3,7 +3,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import densenet121
+from torchvision.models import densenet169
 import torchvision
+from torchsummary import summary
 
 # Outputs (num_channels,Height,Width) tensor
 # densenet121 = densenet121(weights='DEFAULT')
@@ -72,9 +74,9 @@ class DepthPerception(nn.Module):
         return self.decoder(self.encoder(x))
 
 
-
-# model = DepthPerception()
-# model = model.cuda()
+model = Encoder()
+model = model.cuda()
+summary(model,(3,768,1024))
 # scene1 = torchvision.io.read_image("data/indoors/scene_00019/scan_00183/00019_00183_indoors_000_010.png")
 # scene1 = scene1.cuda()
 # d_map = model(scene1.float().resize(1,3,768,1024))
