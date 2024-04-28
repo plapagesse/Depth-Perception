@@ -19,7 +19,7 @@ def calculate_mean_depth(train_data):
     return sum/count
 
 '''
-Returns the total_relative_error and total_squared_error given a set of testing data and a mean depth map
+Returns the average_relative_error and root_mean_squared_error given a set of testing data and a mean depth map
 'test_data' is a list and 'mean_depth' is the output of 'calculate_mean_depth'
 '''
 def get_naive_method_error(test_data, mean_depth):
@@ -43,5 +43,7 @@ def get_naive_method_error(test_data, mean_depth):
         # Calcuklate the root mean squared error
         squared_error = (prediction - truth) ** 2
         total_squared_error += torch.sum(squared_error).item()
-        
-    return total_relative_error, total_squared_error
+
+    average_relative_error = total_relative_error / num_points
+    root_mean_squared_error = np.sqrt(total_squared_error / num_points)
+    return average_relative_error, root_mean_squared_error
