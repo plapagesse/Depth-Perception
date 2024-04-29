@@ -69,6 +69,47 @@ class InternalLoader(Dataset):
         return len(self.dataset)
 
 
+def test_and_score(model, test_data):
+
+    model.eval()
+    total_relative_error = 0
+    total_squared_error = 0
+    num_points = 0
+
+    for point in test_data:
+        default = [point['scene'].cuda()]
+        truth = [point['scene_depth'].cuda()]
+        masks = [point["scene_depth_mask"].cuda()]
+
+        default = torch.stack(default)
+        truth = torch.stack(truth)
+        masks = torch.stack(masks)
+
+        #predict
+        prediction = model(default)
+        prediction = F.upsample(prediction, scale_factor=2, mode='bilinear')
+        prediction[masks == 0] = 0.4
+
+        # Calculate the averge relative error
+        relative_error = torch.abs(prediction - truth) / torch.clamp(truth, min=1e-6) 
+        total_relative_error += torch.sum(relative_error).item()
+        num_points += torch.numel(truth)
+
+        # Calcuklate the root mean squared error
+        squared_error = (prediction - truth) ** 2
+        total_squared_error += torch.sum(squared_error).item()
+
+
+    average_relative_error = total_relative_error / num_points
+    root_mean_squared_error = np.sqrt(total_squared_error / num_points)
+    print(f"Average Relative Error: {average_relative_error}")
+    print(f"Root Mean Squared Error: {root_mean_squared_error}")
+
+    model.train()
+    return average_relative_error, root_mean_squared_error
+
+
+
 def main():
     TRAIN_MODE = False
     # Initialize model arch
@@ -120,9 +161,9 @@ def main():
                         dataset.append({"scene": scenen, "scene_depth": scene_depth,
                                         "scene_depth_mask": scene_depth_mask.movedim(-1, 0)})
 
-        with open('dataset.pkl', 'wb') as file:
-            print(dataset)
-            pickle.dump(dataset, file)
+        # with open('dataset.pkl', 'wb') as file:
+        #     print(dataset)
+        #     pickle.dump(dataset, file)
 
     # load data
     print("loading data")
@@ -154,6 +195,10 @@ def main():
     l1_losses = []
     lgrad_losses = []
     lssim_losses = []
+
+    test_are = []
+    test_rme = []
+    epoch_axis = []
 
     if TRAIN_MODE:
         for epoch in tqdm(range((len(loader) - 1) * 4)):  # Go through dataset twice
@@ -200,6 +245,11 @@ def main():
                 print("Grad_loss ", l_grad)
                 print("Depth loss/10 ", l_depth*0.1)
                 visualize_pred(default[0], prediction[0], depths[0], epoch)
+                test_average_relative_error, test_root_mean_squared_error = test_and_score(model, test_data)
+                test_are.append(test_average_relative_error)
+                test_rme.append(test_root_mean_squared_error)
+                epoch_axis.append(epoch)
+
         torch.save(model.state_dict(),"model/model121_allloss")
         torch.save(lssim_losses,"model/loss_ssim")
         torch.save(l1_losses, "model/loss_l1")
@@ -211,38 +261,10 @@ def main():
     #TEST
     model.eval()    
     
-    total_relative_error = 0
-    total_squared_error = 0
-    num_points = 0
-
-    for point in test_data:
-        default = [point['scene'].cuda()]
-        truth = [point['scene_depth'].cuda()]
-        masks = [point["scene_depth_mask"].cuda()]
-
-        default = torch.stack(default)
-        truth = torch.stack(truth)
-        masks = torch.stack(masks)
-
-        #predict
-        prediction = model(default)
-        prediction = F.upsample(prediction, scale_factor=2, mode='bilinear')
-        prediction[masks == 0] = 0.4
-
-        # Calculate the averge relative error
-        relative_error = torch.abs(prediction - truth) / torch.clamp(truth, min=1e-6)  # Avoid division by zero
-        total_relative_error += torch.sum(relative_error).item()
-        num_points += torch.numel(truth)
-
-        # Calcuklate the root mean squared error
-        squared_error = (prediction - truth) ** 2
-        total_squared_error += torch.sum(squared_error).item()
-
-
-    average_relative_error = total_relative_error / num_points
-    root_mean_squared_error = np.sqrt(total_squared_error / num_points)
-    print(f"Average Relative Error: {average_relative_error}")
-    print(f"Root Mean Squared Error: {root_mean_squared_error}")
+    test_average_relative_error, test_root_mean_squared_error = test_and_score(model, test_data)
+    test_are.append(test_average_relative_error)
+    test_rme.append(test_root_mean_squared_error)
+    epoch_axis.append(epoch)
 
 
 
