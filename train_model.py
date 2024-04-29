@@ -272,9 +272,10 @@ def main():
     else:
         model.load_state_dict(torch.load("model/model121_allloss"))
         print("loaded model")
+        test_average_relative_error, test_root_mean_squared_error = test_and_score(model, test_data)
+        return 0
 
-    #TEST
-    model.eval()    
+    #TEST 
     
     test_average_relative_error, test_root_mean_squared_error = test_and_score(model, test_data)
     test_are.append(test_average_relative_error)
