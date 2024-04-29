@@ -161,9 +161,9 @@ def main():
                         dataset.append({"scene": scenen, "scene_depth": scene_depth,
                                         "scene_depth_mask": scene_depth_mask.movedim(-1, 0)})
 
-        # with open('dataset.pkl', 'wb') as file:
-        #     print(dataset)
-        #     pickle.dump(dataset, file)
+        with open('dataset.pkl', 'wb') as file:
+            print(dataset)
+            pickle.dump(dataset, file)
 
     # load data
     print("loading data")
