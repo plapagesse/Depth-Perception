@@ -109,6 +109,21 @@ def test_and_score(model, test_data):
     return average_relative_error, root_mean_squared_error
 
 
+def plot_and_save(nums, loss_name, x_axis=None):
+    plt.figure(figsize=(10, 5)) 
+    if not x_axis:
+        plt.plot(nums, label= loss_name + ' Loss per Iteration')
+    else:
+        plt.plot(x_axis, nums, label= loss_name + ' Loss per Iteration')
+    plt.title(loss_name + 'Loss Over Iterations')
+    plt.xlabel('Epoch')
+    plt.ylabel(loss_name + ' Loss')
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig(loss_name + '_loss_plot.png')
+    plt.close()
+
 
 def main():
     TRAIN_MODE = False
@@ -266,6 +281,16 @@ def main():
     test_rme.append(test_root_mean_squared_error)
     epoch_axis.append(epoch)
 
+
+    l1s = [loss.item() for loss in l1_losses]
+    gradls = [loss.item() for loss in lgrad_losses]
+    simls = [loss.item() for loss in lssim_losses]
+
+    plot_and_save(l1s, 'l1')
+    plot_and_save(gradls, 'gradient')
+    plot_and_save(simls, 'ssim')
+    plot_and_save(test_rme, 'Test RMSE', epoch_axis)
+    plot_and_save(test_are, 'Test Average Relative', epoch_axis)
 
 
 if __name__ == '__main__':
