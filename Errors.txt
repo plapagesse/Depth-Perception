@@ -1,0 +1,11 @@
+Largessim:
+Average Relative Error: 0.41766318092985977
+Root Mean Squared Error: 9.64527626355139
+
+RegularModel:
+Average Relative Error: 0.44590274322485324
+Root Mean Squared Error: 8.761063239107816
+
+FrozenEncoder:
+Average Relative Error: 0.6472822034745648
+Root Mean Squared Error: 9.2696395948503
